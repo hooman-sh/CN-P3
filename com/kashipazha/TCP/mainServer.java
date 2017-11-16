@@ -13,23 +13,33 @@ public class mainServer extends MyServerSocket {
         return (b & (1 << bit)) != 0;
     }
 
+
+    private String checkPacket(DatagramPacket packet){
+        Map<String, String> headers= new HashMap<String, String>();
+        byte[]  data = packet.getData();
+        headers.put("srcIP",packet.getAddress().toString());
+        headers.put("srcPort", Integer.toString(packet.getPort()));
+        String s1 = String.format("%8s", Integer.toBinaryString(data[9] & 0xFF)).replace(' ', '0');
+        headers.put("ConnectionStab", s1);
+        if(headers.get("ConnectionStab").equals("00000010")){
+            return "newConnection";
+        }
+        return "";
+    }
+
     public MySocket accept() throws IOException{
         DatagramPacket packet = new DatagramPacket(new byte[256], 256);
         mainServerSocket.receive(packet);
-        byte packetContent[] = packet.getData();
-        byte connectionStabHeader[] = Arrays.copyOfRange(packetContent,0,1);
-//        String s ="0b" + ("0000000" + Integer.toBinaryString(0xFF & connectionStabHeader[0])).replaceAll(".*(.{8})$", "$1");
-        System.out.println(Integer.toBinaryString(connectionStabHeader[0] & 0xFF));
-
-        String setConnection = Integer.toBinaryString(connectionStabHeader[0] & 0xFF);
-        if(setConnection.equals("10")){
-            System.out.println("packet is for setting up a connection");
-            return new setupSockets(packet);
+        while (true){
+            switch (checkPacket(packet)){
+                case "newConnection":{
+                    return new setupSockets(packet);
+                }
+            }
         }
-        return null;
     }
     public mainServer() throws Exception{
-        super(3000);
+        super(1339);
         try {
             mainServerSocket = new DatagramSocket(1339);
 //            InetSocketAddress address = new InetSocketAddress(InetAddress.getByName("hooman.com"), 1339);
@@ -45,43 +55,7 @@ public class mainServer extends MyServerSocket {
         }
 
     }
-    public class setupSockets implements MySocket{
-        private Thread thread ;
-        private DatagramPacket packet;
 
-        public setupSockets(DatagramPacket packet){
-            System.out.println("setupSockets constructed");
-            thread = new threadHandle();
-            this.packet = packet;
-            thread.run();
-        }
-
-        public void send(String pathToFile) throws Exception {}
-        public void read(String pathToFile) throws Exception {};
-
-        public void send(byte[] array) throws Exception{};
-        public void read(byte[] array) throws Exception{};
-
-        public void close() throws Exception{};
-
-        public Map<String,String> getHeaders() throws Exception{
-            try {
-
-                Map<String,String> map=new HashMap<String,String>();
-                
-
-            } catch (Exception e) {
-
-
-            }
-        }
-
-        public class threadHandle extends Thread{
-            public void run(){
-                System.out.println("thread created");
-            }
-        }
-    }
     public static void main(String[] args) throws Exception{
         mainServer Server = new mainServer();
 
