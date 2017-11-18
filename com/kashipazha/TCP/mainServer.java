@@ -5,7 +5,7 @@ import java.net.*;
 import java.util.*;
 
 public class mainServer extends MyServerSocket {
-    private DatagramSocket mainServerSocket = null;
+    private static DatagramSocket mainServerSocket = null;
     private ArrayList<MySocket> handlingConnections = new  ArrayList<MySocket>();
 
     private static Boolean isBitSet(byte b, int bit)
@@ -13,7 +13,13 @@ public class mainServer extends MyServerSocket {
         return (b & (1 << bit)) != 0;
     }
 
+    public static void getPacket(DatagramPacket p) throws IOException{
+        mainServerSocket.receive(p);
+    }
 
+    public static void sendPacket(DatagramPacket p)throws IOException{
+        mainServerSocket.send(p);
+    }
     private String checkPacket(DatagramPacket packet){
         Map<String, String> headers= new HashMap<String, String>();
         byte[]  data = packet.getData();
@@ -27,7 +33,7 @@ public class mainServer extends MyServerSocket {
         return "";
     }
 
-    public MySocket accept() throws IOException{
+    public MySocket accept() throws Exception{
         DatagramPacket packet = new DatagramPacket(new byte[256], 256);
         mainServerSocket.receive(packet);
         while (true){
