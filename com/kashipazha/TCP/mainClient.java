@@ -24,17 +24,7 @@ public class mainClient implements MySocket{
         ByteBuffer buf = ByteBuffer.allocate(255);
         DatagramPacket packet = new DatagramPacket(buf.array(), buf.capacity(), address, port);
 
-        buf.put(Byte.parseByte("00000000"));
-        buf.put(Byte.parseByte("00000000"));
-        buf.put(Byte.parseByte("00000000"));
-        buf.put(Byte.parseByte("00000000"));
-        buf.put(Byte.parseByte("00000000"));
-        buf.put(Byte.parseByte("00000000"));
-        buf.put(Byte.parseByte("00000000"));
-        buf.put(Byte.parseByte("00000000"));
-        buf.put(Byte.parseByte("00000000"));
-        buf.put(Byte.parseByte("2"));
-
+        setupSockets.setHeader(9,9, 2, buf);
 
         packet.setData(buf.array());
 
@@ -42,25 +32,16 @@ public class mainClient implements MySocket{
         rcvPacket = new DatagramPacket(buf.array(),buf.capacity());
         clientSock.receive(rcvPacket);
 
-//        ByteBuffer body = ByteBuffer.wrap(packet.getData());
         Map<String,String> header = getHeaders();
 
         ByteBuffer body = ByteBuffer.allocate(255);
         DatagramPacket SYNACK = new DatagramPacket(body.array(), body.capacity(), packet.getAddress(), packet.getPort());
 
-        body.put(Byte.parseByte("0"));
-        body.put(Byte.parseByte("0"));
-        body.put(Byte.parseByte("0"));
-        body.put(Byte.parseByte(Integer.toString((seqNum++))));
-        body.put(Byte.parseByte("0"));
-        body.put(Byte.parseByte("0"));
-        body.put(Byte.parseByte("0"));
-        System.out.println(Integer.parseInt(header.get("seqNumber"))+1);
-        body.put(Byte.parseByte(Integer.toString(Integer.parseInt(header.get("seqNumber"))+1))); //set acknum
-        body.put(Byte.parseByte("0"));
-        body.put(Byte.parseByte("0"));
-        body.put(Byte.parseByte("0"));
-        body.put(Byte.parseByte("16")); //set  ACK to 1
+        setupSockets.setHeader(0,3, seqNum++, body);
+
+        setupSockets.setHeader(4,7, Integer.parseInt(header.get("seqNumber"))+1, body);
+
+        setupSockets.setHeader(9,9, 16, body);
 
         clientSock.send(SYNACK);
     }
@@ -99,6 +80,9 @@ public class mainClient implements MySocket{
 
     public static void main(String[] args) throws Exception{
         mainClient M= new mainClient();
+        while (true){
+            // read and write must be here
+        }
     }
 
 }

@@ -6,7 +6,7 @@ import java.util.*;
 
 public class mainServer extends MyServerSocket {
     private static DatagramSocket mainServerSocket = null;
-    private ArrayList<MySocket> handlingConnections = new  ArrayList<MySocket>();
+    private ArrayList<setupSockets> handlingConnections = new  ArrayList<setupSockets>();
 
     private static Boolean isBitSet(byte b, int bit)
     {
@@ -30,19 +30,39 @@ public class mainServer extends MyServerSocket {
         if(headers.get("ConnectionStab").equals("00000010")){
             return "newConnection";
         }
-        return "";
+        else
+            return "exist";
+    }
+
+    private MySocket retransmit(DatagramPacket packet){
+        for(setupSockets s: handlingConnections){
+            if(s.getPort() == packet.getPort() && s.getIP() == s.getIP()){
+                s.myPackets.add(packet);
+                System.out.println("packet retransmitted");
+                s.wakeMeUpForIO();
+                return s;
+            }
+        }
+        return null;
     }
 
     public MySocket accept() throws Exception{
         DatagramPacket packet = new DatagramPacket(new byte[256], 256);
         mainServerSocket.receive(packet);
-        while (true){
+        MySocket m=null;
             switch (checkPacket(packet)){
                 case "newConnection":{
-                    return new setupSockets(packet);
+                    setupSockets s  = new setupSockets(packet);
+                    handlingConnections.add(s);
+                    m=s;
+                    break;
+                }case "exist":{
+                    m=retransmit(packet);
+                    break;
                 }
+                default:;
             }
-        }
+            return m;
     }
     public mainServer() throws Exception{
         super(1339);
@@ -54,7 +74,6 @@ public class mainServer extends MyServerSocket {
             boolean run = true;
             while(true){
                 MySocket S = accept();
-                handlingConnections.add(S);
             }
         }catch (Exception e){
             System.out.println(e.getMessage());

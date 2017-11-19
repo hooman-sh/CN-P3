@@ -1,5 +1,6 @@
 package com.kashipazha.TCP;
 
+import javax.xml.crypto.Data;
 import java.io.IOException;
 import java.lang.reflect.Array;
 import java.net.DatagramPacket;
@@ -9,13 +10,22 @@ import java.nio.ByteBuffer;
 import java.util.*;
 
 public class setupSockets implements MySocket{
-        private Thread thread ;
+        public Thread thread ;
         private DatagramPacket packet;
+        public Queue<DatagramPacket> myPackets = new LinkedList<>();
         private ByteBuffer senderBuffer = ByteBuffer.allocate(20000000); //20 MB buffer
         private int windowSize = 20;
         private InetAddress clientIP;
         private int clientPort;
         private int seqNum;
+        private boolean imSleep=false;
+
+        public InetAddress getIP(){
+            return clientIP;
+        }
+        public int getPort(){
+            return clientPort;
+        }
 
 
         private static String byteToBinaryS(byte[] infos){
@@ -26,54 +36,78 @@ public class setupSockets implements MySocket{
             return Integer.toString(Integer.parseInt(s1, 2));
         }
 
-        private void getMyPacket(DatagramPacket p) throws IOException{
-            mainServer.getPacket(p);
-            if(p.getAddress() == clientIP && p.getPort() == clientPort)
-                packet = p;
+        synchronized void wakeMeUpForIO(){
+            if (imSleep)
+                notify();
+            imSleep = false;
+        }
+        synchronized void sleepMeForIO() throws InterruptedException{
+            imSleep = true;
+            wait();
 
         }
 
-        private boolean HandShake() throws Exception{
+        public static void setHeader(int begin, int end, int data, ByteBuffer b) {
+
+            int temp = data;
+            int remain;
+
+            while (temp / 256 >= 1) {
+                if (end >= begin) {
+
+                    remain = temp % 256;
+                    temp = temp / 256;
+                    b.put(end, Byte.parseByte(Integer.toString(remain)));
+                    end--;
+                }
+            }
+            b.put(end, Byte.parseByte(Integer.toString(temp)));
+        }
+
+
+        synchronized void getMyPacket() throws IOException, InterruptedException{
+            System.out.println("wait for my packet");
+
+            if(myPackets.size() == 0){
+                sleepMeForIO();
+            }
+
+            packet = myPackets.remove();
+
+        }
+
+        private void HandShake() throws Exception{
+            System.out.println("enter the HandShake");
             Map<String,String> header = getHeaders();
             clientIP = packet.getAddress();
             clientPort = packet.getPort();
-            for (String name: header.keySet()){
-                String value = header.get(name);
-                System.out.println(name + " " + value);
-            }
             ByteBuffer body = ByteBuffer.allocate(255);
             DatagramPacket SYNACK = new DatagramPacket(body.array(), body.capacity(), packet.getAddress(), packet.getPort());
             seqNum = 32;
 
-            body.put(Byte.parseByte("0"));
-            body.put(Byte.parseByte("0"));
-            body.put(Byte.parseByte("0"));
-            body.put(Byte.parseByte(Integer.toString(seqNum))); //set seq num
-            body.put(Byte.parseByte("0"));
-            body.put(Byte.parseByte("0"));
-            body.put(Byte.parseByte("0"));
-            body.put(Byte.parseByte(Integer.toString(Integer.parseInt(header.get("seqNumber"))+1))); //set acknum
-            body.put(Byte.parseByte("0"));
-            body.put(Byte.parseByte("18"));
+            setHeader(0, 3,32, body);
+
+
+            setHeader(4, 7,Integer.parseInt(header.get("seqNumber"))+1, body);
+
+            setHeader(9, 9,18, body);
+
 
             mainServer.sendPacket(SYNACK);
-            getMyPacket(packet);
+            getMyPacket();
             header = getHeaders();
 
-
-            if (byteToBinaryS(Arrays.copyOfRange(packet.getData(),4,8)).equals("33"))
+            if (header.get("ackNum").equals("33"))
                 System.out.println("congrats, connection has been setup successfully");
 
-            return true;
         }
         public setupSockets(DatagramPacket packet) throws Exception{
             System.out.println("setupSockets constructed");
             //3 way handshake here
             this.packet = packet;
-            if(HandShake()) {
-                thread = new threadHandle();
-                thread.run();
-            }
+            thread = new Thread(new threadHandle() );
+            thread.start();
+
         }
 
 
@@ -98,9 +132,17 @@ public class setupSockets implements MySocket{
             return m;
         }
 
-        public class threadHandle extends Thread{
-            public void run(){
-                System.out.println("thread created");
+        public class threadHandle implements Runnable {
+            public void run() {
+                try {
+                    HandShake();
+                    while (true){
+                        //read and write must be here
+                    }
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+
             }
         }
 }
