@@ -1,6 +1,7 @@
 package com.kashipazha.TCP;
 
 
+import javax.xml.crypto.Data;
 import java.io.IOException;
 import java.net.*;
 import java.nio.ByteBuffer;
@@ -8,13 +9,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Scanner;
+import java.io.*;
 
 public class mainClient implements MySocket{
     private DatagramSocket clientSock;
+
+    private setupSegment segmentHandler;
     private ByteBuffer receiverBuffer = ByteBuffer.allocate(20000000); //20 MB buffer
     private DatagramPacket rcvPacket ;
-    private int seqNum=0;
-    private int windowSize = 10;
+
 
     private void createSocket() throws Exception{
         clientSock = new DatagramSocket();
@@ -24,7 +27,9 @@ public class mainClient implements MySocket{
         ByteBuffer buf = ByteBuffer.allocate(255);
         DatagramPacket packet = new DatagramPacket(buf.array(), buf.capacity(), address, port);
 
-        setupSockets.setHeader(9,9, 2, buf);
+        segmentHandler.setSeqNum(0);
+
+        segmentHandler.setHeader(9,9, 2, buf);
 
         packet.setData(buf.array());
 
@@ -37,11 +42,11 @@ public class mainClient implements MySocket{
         ByteBuffer body = ByteBuffer.allocate(255);
         DatagramPacket SYNACK = new DatagramPacket(body.array(), body.capacity(), packet.getAddress(), packet.getPort());
 
-        setupSockets.setHeader(0,3, seqNum++, body);
+        segmentHandler.setHeader(0,3, (segmentHandler.getSeqNum()+1), body);
 
-        setupSockets.setHeader(4,7, Integer.parseInt(header.get("seqNumber"))+1, body);
+        segmentHandler.setHeader(4,7, Integer.parseInt(header.get("seqNumber"))+1, body);
 
-        setupSockets.setHeader(9,9, 16, body);
+        segmentHandler.setHeader(9,9, 16, body);
 
         clientSock.send(SYNACK);
     }
@@ -54,14 +59,28 @@ public class mainClient implements MySocket{
         return Integer.toString(Integer.parseInt(s1, 2));
     }
     private   mainClient() throws Exception{
-
-       createSocket();
+        segmentHandler = new setupSegment();
+        createSocket();
     }
     public void send(String pathToFile) throws Exception{}
-    public void read(String pathToFile) throws Exception{}
+    public void read(String pathToFile) throws Exception{
+        ByteBuffer readingBuffer = ByteBuffer.allocate(20000);
+        OutputStream writeToFile = new FileOutputStream("./hello2.txt");
+
+        read(readingBuffer.array());
+
+        writeToFile.write(readingBuffer.array());
+        writeToFile.close();
+    }
 
     public void send(byte[] array) throws Exception{}
-    public void read(byte[] array) throws Exception{}
+    public void read(byte[] array) throws Exception{
+
+        rcvPacket = new DatagramPacket(array, array.length);
+        clientSock.receive(rcvPacket);
+
+
+    }
 
     public void close() throws Exception{}
 
@@ -80,9 +99,10 @@ public class mainClient implements MySocket{
 
     public static void main(String[] args) throws Exception{
         mainClient M= new mainClient();
-        while (true){
+//        while (true){
+            M.read("hello2.txt");
             // read and write must be here
-        }
+//        }
     }
 
 }
